@@ -16,6 +16,7 @@ load_dotenv()
 
 import os
 import sys
+import anthropic
 from langchain_core.messages import HumanMessage, AIMessage
 
 from agent.graph import compiled_graph
@@ -92,16 +93,21 @@ def run_agent(question: str) -> None:
         print(f"\n[ERROR] {exc}")
         print("Hint: reduce complexity of your question or increase MAX_ITERATIONS in agent/state.py")
 
-    except (TypeError, ValueError) as exc:
-        msg = str(exc)
-        if "api_key" in msg or "authentication" in msg.lower() or "Authorization" in msg:
-            print("\n[AUTH ERROR] ANTHROPIC_API_KEY is missing or invalid.")
-            print("  1. Copy .env.example to .env")
-            print("  2. Set ANTHROPIC_API_KEY=sk-ant-... in .env")
-            print("  3. Run again: uv run python main.py")
-        else:
-            print(f"\n[ERROR] {type(exc).__name__}: {exc}")
-            raise
+    except anthropic.AuthenticationError:
+        print("\n[AUTH ERROR] ANTHROPIC_API_KEY is invalid or rejected (HTTP 401).")
+        print("  Get a valid key from: https://console.anthropic.com/settings/keys")
+        print("  Then set it in your .env file: ANTHROPIC_API_KEY=sk-ant-...")
+
+    except anthropic.APIConnectionError as exc:
+        print(f"\n[CONNECTION ERROR] Could not reach the Anthropic API: {exc}")
+        print("  Check your internet connection and try again.")
+
+    except anthropic.RateLimitError:
+        print("\n[RATE LIMIT] You have exceeded your Anthropic API rate limit.")
+        print("  Wait a moment and try again, or check your usage at console.anthropic.com")
+
+    except anthropic.APIStatusError as exc:
+        print(f"\n[API ERROR] HTTP {exc.status_code}: {exc.message}")
 
     except Exception as exc:
         print(f"\n[UNEXPECTED ERROR] {type(exc).__name__}: {exc}")
